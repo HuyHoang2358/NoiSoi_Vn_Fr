@@ -1,0 +1,16 @@
+.ant-menu-item-selected{
+    background-color: red !important;
+}
+.ant-btn-primary{
+    background-color: red !important;
+    border-color: red !important;
+}
+.ant-table-thead {
+    background-color: #989898 !important;
+}
+.ant-pagination-item-active{
+    border-color: red !important;
+}
+.ant-pagination-item-active a{
+    color: red !important;
+}
