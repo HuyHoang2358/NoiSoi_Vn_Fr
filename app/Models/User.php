@@ -9,10 +9,13 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Jetstream\HasProfilePhoto;
 use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
  * @method static create(array $array)
+ * @method static find($id)
+ * @property mixed $roles
  */
 class User extends Authenticatable
 {
@@ -61,6 +64,22 @@ class User extends Authenticatable
      * @var array<int, string>
      */
     protected $appends = [
-        'profile_photo_url',
+        'profile_photo_url', 'role_id', 'role_name'
     ];
+
+    protected $with = ['profile'];
+
+    public function profile(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Profile::class,'user_id','id');
+    }
+
+    public function getRoleIdAttribute(): int
+    {
+        return $this->roles->first()->id;
+    }
+    public function getRoleNameAttribute(): string
+    {
+        return $this->roles->first()->name;
+    }
 }

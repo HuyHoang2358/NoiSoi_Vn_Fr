@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Label;
+use App\Models\LabelAnswer;
 use App\Models\Project;
+use App\Traits\SendRequestTrait;
 use App\Traits\StorageTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,7 +14,7 @@ use Inertia\Inertia;
 class ProjectController extends Controller
 {
     use StorageTrait;
-
+    use SendRequestTrait;
     public function __construct()
     {
         $this->middleware('auth');
@@ -60,4 +63,18 @@ class ProjectController extends Controller
             'images' => $project->images,
         ]);
     }
+
+
+    public function makeLabel($project_id): \Inertia\Response
+    {
+        $project = Project::find($project_id);
+        return Inertia::render('ProjectMakeLabel',[
+            'project' => $project,
+            'images' => $project->images,
+            'qualityLabels' => Label::where('type','quality')->get(),
+            'gastritisLabels' => Label::where('type','gastritis')->get(),
+        ]);
+
+    }
+
 }

@@ -56,12 +56,12 @@
                             <p>Preview</p>
                         </div>
                     </a>
-                    <a @click="">
+<!--                    <a @click="">
                         <div class="flex justify-start items-center gap-2 text-gray-500 hover:text-orange-400 py-1 pr-4">
                             <i class="fa-solid fa-tag"></i>
                             <p>Label Image</p>
                         </div>
-                    </a>
+                    </a>-->
                     <a @click="false">
                         <div class="flex justify-start items-center gap-2 text-gray-500 hover:text-orange-400 py-1 pr-4">
                             <i class="fa-regular fa-pen-to-square"></i>

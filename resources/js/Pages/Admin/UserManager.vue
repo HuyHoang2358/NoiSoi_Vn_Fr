@@ -1,14 +1,16 @@
 <script setup>
-import { h } from 'vue';
+import {h, ref} from 'vue';
 import AdminLayout from "@/Layouts/AdminLayout.vue";
 import SearchIcon from "@/Components/Icons/SearchIcon.vue";
 import FilterIcon from "@/Components/Icons/FilterIcon.vue";
 import AddCircleIcon from "@/Components/Icons/AddCircleIcon.vue";
 import EditIcon from "@/Components/Icons/EditIcon.vue";
-import UserGroupIcon from "@/Components/Icons/UserGroupIcon.vue";
 import TrashIcon from "@/Components/Icons/TrashIcon.vue";
+import UserModal from "@/Components/Modals/UserModal.vue";
 
-defineProps({
+import {router} from "@inertiajs/vue3";
+import {notification} from "ant-design-vue";
+const props = defineProps({
     state: {
         type: Object,
         selectedKeys: {
@@ -24,41 +26,18 @@ defineProps({
     title: {
         type: String,
     },
+    users: {
+        type: Array,
+        required: true,
+    },
+    roles: {
+        type: Array,
+        required: true,
+    }
 })
-const dataSource = [
-    {
-        key: '1',
-        name: 'Mike',
-        email: 'Mike@gmail.com'
-},
-    {
-    key: '2',
-    name: 'John',
-    email: 'John@gmail.com',
-},
-    {
-        key: '3',
-        name: 'John',
-        email: 'John@gmail.com',
-    },
-    {
-        key: '4',
-        name: 'John',
-        email: 'John@gmail.com',
-    },
-    {
-        key: '5',
-        name: 'John',
-        email: 'John@gmail.com',
-    },
-    {
-        key: '6',
-        name: 'John',
-        email: 'John@gmail.com',
-    }];
 const columns = [
     {
-        title: '#No',
+        title: 'No',
     },
     {
         title: 'Full Name',
@@ -77,20 +56,83 @@ const columns = [
         dataIndex: 'address',
     },
     {
+        title: 'Account Type',
+        dataIndex: 'role',
+    },
+    {
         title: 'Action',
         dataIndex: 'action',
     },
 ];
 
+const isOpenModal = ref(false);
+const isEdit = ref(false);
+const isProcessing = ref(false);
+const currentUser = ref(null);
+
+const openModal = () => { isOpenModal.value = true };
+const closeModal = () => { isOpenModal.value = false; currentUser.value = null };
+
+const onAdd = () => {
+    isEdit.value = false;
+    currentUser.value = null;
+    openModal();
+}
+const onEdit = (user) => {
+    isEdit.value = true;
+    currentUser.value = user;
+    openModal();
+}
+
+const confirmDelete = (id) => {
+    router.delete(route("admin.user.destroy",id),{
+        onSuccess:()=>{
+            notification['success']({
+                message: 'Delete user successfully',
+            });
+        }
+    })
+}
+
+const onSave = (data) => {
+    if (isEdit.value){
+        const user_id = currentUser.value.id;
+        router.put(route("admin.user.update",user_id),data,{
+            onBefore:()=>{
+                isProcessing.value= true;
+            },
+            onSuccess:()=>{
+                isProcessing.value=false;
+                closeModal();
+                notification['success']({
+                    message: 'Update user successfully',
+                });
+            },
+        })
+    }else{
+        router.post(route("admin.user.store"),data,{
+            onBefore:()=>{
+                isProcessing.value= true;
+            },
+            onSuccess:()=>{
+                isProcessing.value=false;
+                closeModal();
+                notification['success']({
+                    message: 'Add new user successfully',
+                });
+            },
+        })
+
+    }
+
+}
+
 </script>
-
-
-
 <template>
-    <AdminLayout title="Dashboard" :state="state">
+    <AdminLayout title="User Manager" :state="state">
         <a-table
             :columns="columns"
-            :data-source="dataSource"
+            :data-source="users"
             size="middle"
             :pagination="false"
             row-class-name="cursor-pointer"
@@ -116,6 +158,7 @@ const columns = [
                                     type="primary"
                                     class="flex justify-center items-center space-x-2.5 bg-blue-600 hover:bg-white hover:text-blue-600"
                                     :icon="h(AddCircleIcon)"
+                                    @click="onAdd"
                                 >
                                     Add new user
                                 </a-button>
@@ -124,17 +167,22 @@ const columns = [
                     </a-row>
                 </template>
                 <template #bodyCell="{ column, index, record }">
-                    <template v-if="column.title === '#No'">
+                    <template v-if="column.title === 'No'">
                         <p class="text-center">{{ index + 1 }}</p>
+                    </template>
+                    <template v-if="column.dataIndex === 'phone'">
+                        <p class="text-left">{{ record.profile.phone }}</p>
+                    </template>
+                    <template v-if="column.dataIndex === 'address'">
+                        <p class="text-left">{{ record.profile.address }}</p>
+                    </template>
+                    <template v-if="column.dataIndex === 'role'">
+                        <p class="text-center py-1 px-2  rounded"
+                            :class="record.role_name === 'admin' ? 'bg-red-100' : 'bg-green-100'"
+                        >{{ record.role_name}}</p>
                     </template>
                     <template v-if="column.dataIndex === 'action'">
                         <div class="flex flex-row gap-x-4">
-                            <a-button
-                                class="bg-[#F1F1F2] p-1.5"
-                                @click="onAddRole(record)"
-                            >
-                                <UserGroupIcon />
-                            </a-button>
                             <a-button
                                 class="bg-[#F1F1F2] p-1.5"
                                 @click="onEdit(record)"
@@ -142,16 +190,15 @@ const columns = [
                                 <EditIcon />
                             </a-button>
                             <a-popconfirm
-                                title="Xác nhận xóa người dùng?"
-                                @confirm="confirm(record.userId)"
-                                @cancel="cancel"
+                                title="Are you sure to delete this user?"
+                                @confirm="confirmDelete(record.id)"
                             >
                                 <a-button class="bg-[#F1F1F2] p-1.5"><TrashIcon /></a-button>
                             </a-popconfirm>
                         </div>
                     </template>
                 </template>
-                <template #footer>
+<!--                <template #footer>
                     <a-row class="flex flex-row justify-end">
                         <a-pagination
                             :show-size-changer="true"
@@ -161,7 +208,15 @@ const columns = [
                             :page-size="pageSize"
                         />
                     </a-row>
-                </template>
+                </template>-->
             </a-table>
+        <UserModal
+            :open="isOpenModal"
+            :isEdit="isEdit"
+            :currentUser="currentUser"
+            :roles="roles"
+            :isProcessing="isProcessing"
+            @closeModal="closeModal"
+            @onSave="onSave"/>
     </AdminLayout>
 </template>

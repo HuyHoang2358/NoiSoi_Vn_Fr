@@ -1,4 +1,5 @@
 <template>
+    <Head :title="title" />
     <a-layout has-sider class="min-h-screen">
         <AdminSidebar :state="state"/>
         <a-layout>
@@ -14,6 +15,7 @@
 <script setup>
 import AdminSidebar from "@/Layouts/AdminSidebar.vue";
 import AdminHeader from "@/Layouts/AdminHeader.vue";
+import {Head} from "@inertiajs/vue3";
 defineProps({
     state: {
         selectedKeys: {
@@ -26,5 +28,6 @@ defineProps({
         },
         required: true,
     },
+    title: String
 });
 </script>
