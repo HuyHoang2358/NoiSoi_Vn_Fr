@@ -3,7 +3,7 @@
         :open="open"
         :mask-closable ="false"
         :footer="false"
-        :title="getTitle"
+        :title="'Sharing project'"
         @cancel="$emit('closeModal')"
     >
         <a-form
@@ -29,14 +29,7 @@
             <a-form-item>
                 <div class="flex flex-row justify-end gap-x-4 items-center mt-8">
                     <CancelButton @click="$emit('closeModal')"> Cancel </CancelButton>
-                    <a-button
-                        type="primary"
-                        html-type="submit"
-                        danger
-                        :loading="isProcessing"
-                    >
-                        {{isEdit ? "Update information" : "Create"}}
-                    </a-button>
+                    <submit-form-button>   </submit-form-button>
                 </div>
             </a-form-item>
         </a-form>
@@ -46,7 +39,7 @@
 </template>
 <script setup>
 
-import {computed, defineProps, reactive, watch} from "vue";
+import { defineProps, reactive, watch} from "vue";
 import SubmitFormButton from "@/Components/Buttons/SubmitFormButton.vue";
 import CancelButton from "@/Components/Buttons/CancelButton.vue";
 
@@ -54,16 +47,6 @@ const props = defineProps({
     open:{
         type:Boolean,
         required:true
-    },
-    isEdit: {
-        type: Boolean,
-        default: false,
-        required: true,
-    },
-    isProcessing: {
-        type: Boolean,
-        default: false,
-        required: true,
     },
     currentProject: {
         type: Object,
@@ -75,11 +58,8 @@ const props = defineProps({
         },
     },
 });
-const emits = defineEmits(["closeModal", "onSave"])
 
-const getTitle = computed(() => {
-    return props.isEdit ? "Edit project" : "Create new project";
-});
+const emits = defineEmits(["closeModal", "onSave"])
 
 const formState = reactive({
     name: "",
@@ -106,7 +86,6 @@ const handleFinish = () => {
     };
     formState.name = "";
     formState.description = "";
-
     emits("onSave", data);
 };
 </script>

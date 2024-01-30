@@ -12,7 +12,7 @@
                 <template #title>
                    <UserIcon /><span class="ml-2"> User manager</span>
                 </template>
-                <MenuItem title="User List" path="#" :menu-key="'1'">
+                <MenuItem title="User List" :path="route('admin.user.index')" :menu-key="'user-list'">
                     <UserIcon />
                 </MenuItem>
             </a-sub-menu>

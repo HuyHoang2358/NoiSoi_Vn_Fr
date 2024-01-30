@@ -5,12 +5,35 @@
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white overflow-hidden shadow-xl sm:rounded-lg p-6">
                     <div class="border-b border-gray-300 pb-2">
-                        <div class="flex justify-start items-center gap-2">
-                            <div class="bg-orange-100 py-1 px-2 rounded-lg">
-                                <i class="fa-regular fa-folder-open text-orange-400 text-2xl"></i>
+                        <div class="flex justify-between items-center">
+                            <div class="flex justify-start items-center gap-2">
+                                <div class="bg-orange-100 py-1 px-2 rounded-lg">
+                                    <i class="fa-regular fa-folder-open text-orange-400 text-2xl"></i>
+                                </div>
+                                <div >
+                                    <p class="font-bold text-base text-blue-900">{{ project.name }}</p>
+                                </div>
                             </div>
-                            <div >
-                                <p class="font-bold text-base text-blue-900">{{ project.name }}</p>
+                            <div  class="flex justify-end items-center gap-2">
+                                <button type="button"
+                                    class="py-2 px-4 font-semibold rounded-lg hover:text-white hover:bg-green-400 border border-green-400 bg-white text-green-500"
+                                    @click="autoCheckQuality"
+                                >
+                                    AI auto check quality
+                                </button>
+                                <button type="button"
+                                    class="py-2 px-4 font-semibold rounded-lg hover:text-white hover:bg-blue-400 border border-blue-400 bg-white text-blue-500"
+                                    @click="autoCheckGastritis"
+                                >
+                                    AI auto check gastritis
+                                </button>
+
+                                <button type="button"
+                                        class="py-2 px-4 font-semibold rounded-lg hover:text-white hover:bg-orange-400 border border-orange-400 bg-white text-orange-500"
+                                        @click="openLabelModel"
+                                >
+                                    Make Label
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -71,6 +94,9 @@
                 </div>
             </div>
         </div>
+        <a-modal v-model:open="isOpenProcessingModal" :title="getTitle" @ok="processingModalHandleOk" :footer="false">
+            <a-progress :percent="defaultPercent" />
+        </a-modal>
     </AppLayout>
 </template>
 
@@ -79,8 +105,12 @@ import AppLayout from '@/Layouts/AppLayout.vue'
 import ImageCard from "@/Components/Cards/ImageCard.vue";
 import ImageInProject from "@/Components/Cards/ImageInProject.vue";
 import UploadFile from "@/Components/Cards/UploadFile.vue";
+
+
 import {computed, ref, watch} from "vue";
-import {toast} from "vue3-toastify";
+
+
+import {router} from "@inertiajs/vue3";
 const props = defineProps({
     project:{
         type:Object,
@@ -104,7 +134,6 @@ const currentPage = ref(1);
 const onShowSizeChange = (current, pageSize) => {
     console.log(current, pageSize);
 };
-
 const pagedImages = computed(() => {
     const startIndex = (currentPage.value - 1) * pageSize.value;
     const endIndex = startIndex + pageSize.value;
@@ -120,6 +149,56 @@ const pagedImages = computed(() => {
     }
 
 });
+const openLabelModel = () => {
+    router.get(route("user.project.make-label", props.project.id));
+}
+// Processing modal
+const defaultPercent = ref(0);
+const processingType = ref("quality");
+const isOpenProcessingModal = ref(false);
+const showProcessingModal = () => {
+    isOpenProcessingModal.value = true;
+};
+const processingModalHandleOk = () => {
+    isOpenProcessingModal.value = false;
+    defaultPercent.value = 0;
+}
+const getTitle = computed(() => {
+    return processingType.value === "quality" ? "Checking image quality" : "Detecting gastritis";
+});
 
-toast('Wow so easy !');
+const autoCheckQuality = () => {
+    processingType.value = "quality";
+    showProcessingModal();
+    let success_request = 0;
+    let num_request = props.project.images.length;
+    props.project.images.forEach((image) => {
+        axios.get(route("user.image.auto-check-quality", image.id)).then((res) => {
+            success_request++;
+            defaultPercent.value = Math.round(success_request/num_request * 100);
+            if (success_request === num_request){
+                setTimeout(() => {
+                    processingModalHandleOk();
+                }, 2000); //
+            }
+        })
+    });
+};
+const autoCheckGastritis = () => {
+    processingType.value = "gastritis";
+    showProcessingModal();
+    let success_request = 0;
+    let num_request = props.project.images.length;
+    props.project.images.forEach((image) => {
+        axios.get(route("user.image.auto-detect-gastritis", image.id)).then((res) => {
+            success_request++;
+            defaultPercent.value = Math.round(success_request/num_request * 100);
+            if (success_request === num_request){
+                setTimeout(() => {
+                    processingModalHandleOk();
+                }, 2000); //
+            }
+        })
+    });
+}
 </script>

@@ -19,6 +19,10 @@ trait StorageTrait
             // Delete the folder
             Storage::deleteDirectory($folderPath);
         }
-
+    }
+    protected function getBase64($path): string
+    {
+        $file = Storage::get($path);
+        return base64_encode($file);
     }
 }

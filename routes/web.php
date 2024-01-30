@@ -36,6 +36,8 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
         Route::put('/edit/{id}',[ProjectController::class,'update'])->name('user.project.update');
         Route::delete('/delete/{id}',[ProjectController::class,'destroy'])->name('user.project.destroy');
         Route::get('/{project_id}',[ProjectController::class,'detail'])->name('user.project.detail');
+/*        Route::get('/{project_id}/auto/checking-quality',[ProjectController::class,'autoCheckingQuality'])->name('user.project.auto-checking-quality');*/
+        Route::get("/{project_id}/make-label",[ProjectController::class,'makeLabel'])->name('user.project.make-label');
     });
 
     Route::group(['prefix' => 'image'], function () {
@@ -43,6 +45,12 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
         Route::post('/add/{project_id}',[ImageController::class,'store'])->name('user.image.upload');
         Route::put('/edit/{id}',[ImageController::class,'update'])->name('user.image.update');
         Route::delete('/delete/{id}',[ImageController::class,'destroy'])->name('user.image.destroy');
+        Route::get("auto-check-quality-image/{image_id}",[ImageController::class,'autoCheckingQuality'])
+            ->name('user.image.auto-check-quality');
+        Route::get("auto-detect-gastritis/{image_id}",[ImageController::class,'autoDetectGastritis'])
+            ->name('user.image.auto-detect-gastritis');
+        Route::post("confirm-label/",[ImageController::class,'confirmLabel'])
+            ->name('user.image.confirm-label');
     });
 
 });
@@ -51,7 +59,13 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
 Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified', 'role:admin'])->group(function () {
     Route::group(['prefix' => 'admin'], function () {
         Route::get('/',[AdminController::class,'homepage'])->name('admin.homepage');
-        Route::get('/user-manager',[UserController::class,'index'])->name('admin.user.index');
+        Route::group(['prefix' => 'user-manager'], function(){
+            Route::get('/',[UserController::class,'index'])->name('admin.user.index');
+            Route::post('/add',[UserController::class,'store'])->name('admin.user.store');
+            Route::put('/edit/{id}',[UserController::class,'update'])->name('admin.user.update');
+            Route::delete('/delete/{id}',[UserController::class,'destroy'])->name('admin.user.destroy');
+        });
+
         Route::group(['prefix' => 'label-manager'], function(){
             Route::get('/{label_type}',[LabelController::class,'index'])->name('admin.label.index');
             Route::post('/add',[LabelController::class,'store'])->name('admin.label.store');

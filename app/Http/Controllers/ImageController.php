@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Image;
+use App\Models\LabelAnswer;
 use App\Models\Project;
+use App\Traits\SendRequestTrait;
 use App\Traits\StorageTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 class ImageController extends Controller
 {
     use StorageTrait;
+    use sendRequestTrait;
 
     public function __construct()
     {
@@ -49,5 +52,56 @@ class ImageController extends Controller
             $image->delete();
         }
         return back();
+    }
+    public function autoCheckingQuality($image_id): \Illuminate\Http\JsonResponse
+    {
+        $image = Image::find($image_id);
+        if ($image){
+            $this->autoCheckingQualityImage($image);
+            return response()->json([
+                'message' => 'success'
+            ]);
+        }
+        return response()->json([
+            'message' => 'fail'
+        ]);
+    }
+    public function autoDetectGastritis($image_id): \Illuminate\Http\JsonResponse
+    {
+        $image = Image::find($image_id);
+        if ($image){
+            $this->autoDetectGastritisImage($image);
+            return response()->json([
+                'message' => 'success'
+            ]);
+        }
+        return response()->json([
+            'message' => 'fail'
+        ]);
+    }
+    public function confirmLabel(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $input = $request->all();
+        $sub_images = $input['sub_images'];
+        foreach ($sub_images as $sub_image){
+            $answerLabel = LabelAnswer::where('image_id','=',$sub_image['id'])->where('user_id','<>',-1)->first();
+            if ($answerLabel){
+                $answerLabel->update([
+                    'label_id' => $sub_image['label_id'],
+                    'user_id' => Auth::user()->id,
+                ]);
+            }else{
+                LabelAnswer::create([
+                    'image_id' => $sub_image['id'],
+                    'label_id' => $sub_image['label_id'],
+                    'user_id' => Auth::user()->id,
+                    'accuracy' => 100,
+                ]);
+            }
+        }
+        return response()->json([
+            'message' => 'success',
+            "current_image" => Image::find(Image::find($sub_images[0]['id'])->parent_id),
+        ]);
     }
 }

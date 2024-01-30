@@ -5,7 +5,7 @@ import ProjectCard from "@/Components/Cards/ProjectCard.vue";
 import NewProject from "@/Components/Buttons/NewProject.vue";
 import ProjectModal from "@/Components/Modals/ProjectModal.vue";
 import {router} from "@inertiajs/vue3";
-import LabelModals from "@/Components/Modals/LabelModals.vue";
+import {notification} from "ant-design-vue";
 const activeKey = ref('1');
 defineProps({
     myProjects:{
@@ -17,6 +17,7 @@ defineProps({
 
 const isOpenModal = ref(false);
 const isEdit = ref(false);
+const isProcessing = ref(false);
 const currentProject = ref(null);
 
 const openModal = () => { isOpenModal.value = true };
@@ -46,17 +47,46 @@ const onSharing = (project) => {
 }
 
 const onDelete = (project) => {
-    router.delete(route("user.project.destroy",project.id));
+    router.delete(route("user.project.destroy",project.id),{
+        onSuccess:()=>{
+            notification['success']({
+                message: 'Delete project successfully',
+            });
+        },
+    });
 }
 
 const onSave = (data) => {
     if (isEdit.value){
         // edit
         const project_id = currentProject.value.id;
-        router.put(route("user.project.update",project_id),data)
+        router.put(route("user.project.update",project_id),data,{
+            onBefore:()=>{
+                isProcessing.value = true
+            },
+            onSuccess:()=>{
+                isProcessing.value = false
+                closeModal();
+                notification['success']({
+                    message: 'Update project information successfully',
+                });
+            },
+        })
     }else{
-        router.post(route("user.project.store"),data)}
-    closeModal();
+        router.post(route("user.project.store"),data,{
+            onBefore:()=>{
+                isProcessing.value = true
+            },
+            onSuccess:()=>{
+                isProcessing.value = false
+                closeModal();
+                notification['success']({
+                    message: 'Create new project successfully',
+                });
+            },
+
+        })
+    }
 }
 
 </script>
@@ -105,6 +135,7 @@ const onSave = (data) => {
         <ProjectModal
             :open="isOpenModal"
             :isEdit="isEdit"
+            :isProcessing="isProcessing"
             :currentProject="currentProject"
             @closeModal="closeModal"
             @onSave="onSave"/>

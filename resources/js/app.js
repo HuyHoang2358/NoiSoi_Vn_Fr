@@ -8,7 +8,6 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ZiggyVue } from 'ziggy-js';
 import {Ziggy } from './ziggy';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
-import { Vue3Toastify } from 'vue3-toastify';
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
@@ -17,7 +16,6 @@ createInertiaApp({
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue, Ziggy)
-            .use(Vue3Toastify,{autoClose: 3000})
             .mount(el);
     },
     progress: {

@@ -10,6 +10,12 @@ class AdminController extends Controller
 {
     public function homepage(): \Inertia\Response
     {
-        return Inertia::render('Admin/Dashboard');
+        return Inertia::render('Admin/Dashboard', [
+            'state' => (object) [
+                'selectedKeys' => ['user-list'],
+                'openKeys'=> ['user-manager'],
+            ],
+            'title' => 'Homepage',
+        ]);
     }
 }
