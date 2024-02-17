@@ -2,20 +2,22 @@
 namespace App\Traits;
 
 
-use App\Models\Image;
+use App\Models\Block;
+use App\Models\BlockLabel;
+use App\Models\ImageLabel;
 use App\Models\Label;
-use App\Models\LabelAnswer;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use Spatie\Image\Exceptions\InvalidManipulation;
 
 
 trait SendRequestTrait
 {
-    private string $endpoint = '192.168.91.152:8000';
+    private string $endpoint = 'http://103.106.104.244:8000';
     private string $checkQualityApiPath = '/check_quality';
     private string $detectApiPath = '/detect';
 
-    public function sendCheckQualityRequest($image_base64)
+    private function sendCheckQualityRequest($image_base64)
     {
         $url = $this->endpoint . $this->checkQualityApiPath;
         $payload = [
@@ -35,51 +37,14 @@ trait SendRequestTrait
                 'json' => $payload,
             ]);
             return json_decode($response->getBody()->getContents(), true);
-        } catch (GuzzleException $e) {
+        } catch (e) {
             return [
                 "softmax" => "-1",
                 "class_id" => "-1"
             ];
         }
     }
-
-    protected function autoCheckingQualityImage($image): void
-    {
-        // get base64 of image
-        $image_base64 = $this->getBase64('public/' . $image->project_id . '/' . $image->file_name);
-
-        // send request to AI
-        $response = $this->sendCheckQualityRequest($image_base64);
-
-        // update label answer
-        $label = Label::where('class_id', strval($response['class_id']))
-            ->where('type', '=', 'quality')->first();
-
-        $label_answer = LabelAnswer::where('image_id', '=', $image->id)
-            ->where('user_id', '=', -1)
-            ->whereHas('label', function ($query) {
-                $query->quality();
-            })->first();
-
-        // check exist quality label answer of AI
-        if ($label_answer) {
-            // update new result
-            $label_answer->update([
-                'label_id' => ($label) ? $label->id : $response['class_id'],
-                'accuracy' => $response['softmax'] * 100 . "",
-            ]);
-        } else {
-            // create new record
-            LabelAnswer::create([
-                'image_id' => $image->id,
-                'user_id' => -1,
-                'label_id' => ($label) ? $label->id : $response['class_id'],
-                'accuracy' => $response['softmax'] * 100 . "",
-            ]);
-        }
-    }
-
-    public function sendDetectGastritisRequest($image_base64)
+    private function sendDetectGastritisRequest($image_base64)
     {
         $url = $this->endpoint . $this->detectApiPath;
         $payload = [
@@ -104,62 +69,136 @@ trait SendRequestTrait
         }
     }
 
-    protected function autoDetectGastritisImage($image): void
+    protected function checkingQualityImage($image): bool
+    {
+
+        // get base64 of image
+        $image_base64 = $this->getBase64('public/' . $image->project_id . '/' . $image->file_name);
+        // send request to AI
+        $response = $this->sendCheckQualityRequest($image_base64);
+        // filter quality label only keep the highest softmax
+        $keepingAIClass = Label::imageQuality()->where('status', '=', 1)->pluck('class_id')->toArray();
+        $AI_class_id = $response['class_id'];
+
+        if (in_array($AI_class_id, $keepingAIClass)) {
+            // Update image label
+            $image_label = $image->imageLabels()->where('user_id', '=', -1)
+                ->whereHas('label', function ($query) {
+                    $query->ImageQuality();
+                })->first();
+
+            $label = Label::where('class_id', "=", $AI_class_id)->where('category_id', '=', 1)->first();
+
+
+            if ($image_label) {
+                $image_label->update([
+                    'label_id' => ($label) ? $label->id : null,
+                    'accuracy' => $response['softmax'] * 100,
+                ]);
+            } else {
+                // create new record
+                ImageLabel::create([
+                    'image_id' => $image->id,
+                    'user_id' => -1,
+                    'label_id' => ($label) ? $label->id : null,
+                    'accuracy' => $response['softmax'] * 100,
+                ]);
+            }
+            return true;
+        }
+        return false;
+
+    }
+
+    /**
+     * @throws InvalidManipulation
+     */
+    protected function detectGastritisImage($image): void
     {
         // get base64 of image
         $image_base64 = $this->getBase64('public/' . $image->project_id . '/' . $image->file_name);
         // send request to AI
         $response = $this->sendDetectGastritisRequest($image_base64);
 
+        $min_top = 1000;
+        $min_left = 1000;
+        $max_bottom = 0;
+        $max_right = 0;
+
         foreach ($response as $item) {
+            $min_top = min($min_top, $item['top']);
+            $min_left = min($min_left, $item['left']);
+            $max_bottom = max($max_bottom, $item['top'] + $item['height']);
+            $max_right = max($max_right, $item['left'] + $item['width']);
 
-            $label = Label::where('class_id', strval($item['class_id']))
-                ->where('type', '=', 'gastritis')->first();
 
-            $sub_image = Image::where('parent_id', $image->id)
-                ->where('file_name', '=', pathinfo($image->file_name, PATHINFO_FILENAME) . "_" . $item["no_img"])->first();
+            $qualityLabel = Label::blockQuality()->where('class_id', '=', $item["quality"])->first();
+            $gastritisLabel = Label::gastritis()->where('class_id', '=', $item["class_id"])->first();
 
-            if ($sub_image) {
-                $sub_image->update([
+            $block = Block::where('image_id', '=', $image->id)
+                ->where('no_img', '=', $item["no_img"])->first();
+
+            if ($block){
+                $block->update([
                     'top' => $item['top'],
                     'left' => $item['left'],
                     'width' => $item['width'],
                     'height' => $item['height'],
                 ]);
-            } else {
-                $sub_image = Image::create([
-                    'user_id' => $image->user_id,
-                    'project_id' => $image->project_id,
-                    'parent_id' => $image->id,
-                    'file_name' => pathinfo($image->file_name, PATHINFO_FILENAME) . "_" . $item["no_img"],
-                    'file_path' => "",
-                    'size' => 0,
+            }else{
+                $block = Block::create([
+                     'image_id' => $image->id,
+                    'no_img' => $item["no_img"],
                     'top' => $item['top'],
                     'left' => $item['left'],
                     'width' => $item['width'],
                     'height' => $item['height'],
+                    'size'  => 0
                 ]);
             }
 
-            $label_answer = LabelAnswer::where('image_id', '=', $sub_image->id)
+            $blockQualityLabel = BlockLabel::where('block_id', $block->id)
+                ->where('user_id', '=', -1)
+                ->whereHas('label', function ($query) {
+                    $query->BlockQuality();
+                })->first();
+
+            if($blockQualityLabel){
+                $blockQualityLabel->update([
+                    'label_id' => ($qualityLabel) ? $qualityLabel->id : $item['quality'],
+                    'accuracy' => ($item['prob']) ? $item['prob'] * 100 : 0,
+                ]);
+            }else {
+                BlockLabel::create([
+                    'block_id' => $block->id,
+                    'user_id' => -1,
+                    'label_id' => ($qualityLabel) ? $qualityLabel->id : $item['quality'],
+                    'accuracy' => ($item['prob']) ? $item['prob'] * 100 : 0,
+                ]);
+            }
+
+            $blockGastritisLabel = BlockLabel::where('block_id', $block->id)
                 ->where('user_id', '=', -1)
                 ->whereHas('label', function ($query) {
                     $query->gastritis();
                 })->first();
-
-            if ($label_answer) {
-                $label_answer->update([
-                    'label_id' => ($label) ? $label->id : $item['class_id'],
-                    'accuracy' => ($item['softmax']) ? $item['softmax'] * 100 . "" : 0,
+            if($blockGastritisLabel) {
+                $blockGastritisLabel->update([
+                    'label_id' => ($gastritisLabel) ? $gastritisLabel->id : $item['class_id'],
+                    'accuracy' => ($item['softmax']) ? $item['softmax'] * 100 : 0,
                 ]);
-            } else {
-                LabelAnswer::create([
-                    'image_id' => $sub_image->id,
+            }else{
+                BlockLabel::create([
+                    'block_id' => $block->id,
                     'user_id' => -1,
-                    'label_id' => ($label) ? $label->id : $item['class_id'],
-                    'accuracy' => ($item['softmax']) ? $item['softmax'] * 100 . "" : 0,
+                    'label_id' => ($gastritisLabel) ? $gastritisLabel->id : $item['class_id'],
+                    'accuracy' => ($item['softmax']) ? $item['softmax'] * 100 : 0,
                 ]);
             }
         }
+
+        // crop image
+        //$this->cropImage('public/' . $image->project_id . '/' . $image->file_name, $min_left, $min_top, $max_right - $min_left, $max_bottom - $min_top);
+
     }
 }

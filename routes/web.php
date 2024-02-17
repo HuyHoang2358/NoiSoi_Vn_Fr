@@ -1,12 +1,14 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\LabelController;
+use App\Http\Controllers\Admin\ProjectManagerController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ImageController;
+
 use App\Http\Controllers\ProjectController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -25,6 +27,8 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
     Route::get('/',[HomeController::class,'redirectUser'])->name('dashboard');
 });
 
+Route::get('/test',[HomeController::class,'test'])->name('test');
+
 Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified', 'role:user'])->group(function () {
     Route::get('/home',function(){
         return Inertia::render('Dashboard');
@@ -36,8 +40,7 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
         Route::put('/edit/{id}',[ProjectController::class,'update'])->name('user.project.update');
         Route::delete('/delete/{id}',[ProjectController::class,'destroy'])->name('user.project.destroy');
         Route::get('/{project_id}',[ProjectController::class,'detail'])->name('user.project.detail');
-/*        Route::get('/{project_id}/auto/checking-quality',[ProjectController::class,'autoCheckingQuality'])->name('user.project.auto-checking-quality');*/
-        Route::get("/{project_id}/make-label",[ProjectController::class,'makeLabel'])->name('user.project.make-label');
+        Route::get("/{project_id}/confirm-label/",[ProjectController::class,'confirmLabel'])->name('user.project.confirm-label');
     });
 
     Route::group(['prefix' => 'image'], function () {
@@ -45,12 +48,16 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
         Route::post('/add/{project_id}',[ImageController::class,'store'])->name('user.image.upload');
         Route::put('/edit/{id}',[ImageController::class,'update'])->name('user.image.update');
         Route::delete('/delete/{id}',[ImageController::class,'destroy'])->name('user.image.destroy');
+        Route::get('/processing/{image_id}/{run_again}',[ImageController::class,'processing'])->name('user.image.processing');
+        Route::post("confirm-label/",[ImageController::class,'confirmLabel'])->name('user.image.confirm-label');
+
+
+        // Auto checking quality
         Route::get("auto-check-quality-image/{image_id}",[ImageController::class,'autoCheckingQuality'])
             ->name('user.image.auto-check-quality');
         Route::get("auto-detect-gastritis/{image_id}",[ImageController::class,'autoDetectGastritis'])
             ->name('user.image.auto-detect-gastritis');
-        Route::post("confirm-label/",[ImageController::class,'confirmLabel'])
-            ->name('user.image.confirm-label');
+
     });
 
 });
@@ -67,10 +74,24 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified',
         });
 
         Route::group(['prefix' => 'label-manager'], function(){
-            Route::get('/{label_type}',[LabelController::class,'index'])->name('admin.label.index');
+            Route::get('/{category_slug}',[LabelController::class,'index'])->name('admin.label.index');
             Route::post('/add',[LabelController::class,'store'])->name('admin.label.store');
             Route::put('/edit/{id}',[LabelController::class,'update'])->name('admin.label.update');
             Route::delete('/delete/{id}',[LabelController::class,'destroy'])->name('admin.label.destroy');
+            Route::get('/change-status/{id}',[LabelController::class,'changeStatus'])->name('admin.label.change-status');
+        });
+
+        Route::group(['prefix' => 'category-manager'], function(){
+            Route::get('/',[CategoryController::class,'index'])->name('admin.category.index');
+            Route::post('/add',[CategoryController::class,'store'])->name('admin.category.store');
+            Route::put('/edit/{id}',[CategoryController::class,'update'])->name('admin.category.update');
+            Route::delete('/delete/{id}',[CategoryController::class,'destroy'])->name('admin.category.destroy');
+        });
+
+        Route::group(['prefix' => 'project-manager'], function(){
+            Route::get('/',[ProjectManagerController::class,'index'])->name('admin.project.index');
+            Route::get('/setting',[ProjectManagerController::class,'setting'])->name('admin.project.setting');
+
         });
     });
 });

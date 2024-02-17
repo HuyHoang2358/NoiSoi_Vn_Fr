@@ -1,5 +1,5 @@
 <template>
-    <AdminLayout title="Label Manager" :state="state">
+    <AdminLayout :title="title" :state="state">
         <a-table
             :columns="columns"
             :data-source="labels"
@@ -45,26 +45,39 @@
                 </template>
             </template>
         </a-table>
-        <LabelModals
+        <LabelModal
             :open="isOpenModal"
             :isEdit="isEdit"
             :currentLabel="currentLabel"
+            :categories="categories"
+            :currentCategory="currentCategory"
+            :isProcessing="isProcessing"
             @closeModal="closeModal"
             @onSave="onSave">
-        </LabelModals>
+        </LabelModal>
     </AdminLayout>
 </template>
+
 <script setup>
-import AdminLayout from "@/Layouts/AdminLayout.vue";
 import {h, ref} from "vue";
-import AddIcon from "@/Components/Icons/AddIcon.vue";
-import LabelModals from "@/Components/Modals/LabelModals.vue";
 import { router } from '@inertiajs/vue3'
+import {notification} from "ant-design-vue";
+import AdminLayout from "@/Layouts/AdminLayout.vue";
 import EditIcon from "@/Components/Icons/EditIcon.vue";
 import TrashIcon from "@/Components/Icons/TrashIcon.vue";
+import AddIcon from "@/Components/Icons/AddIcon.vue";
+import LabelModal from "@/Components/Modals/LabelModal.vue";
 defineProps({
     labels: {
         type: Array,
+        required: true,
+    },
+    categories:{
+        type: Array,
+        required: true,
+    },
+    currentCategory: {
+        type: Object,
         required: true,
     },
     state: {
@@ -87,6 +100,8 @@ defineProps({
 const currentLabel = ref(null);
 const isOpenModal = ref(false);
 const isEdit = ref(false);
+const isProcessing = ref(false);
+
 
 
 const openModal = () => { isOpenModal.value = true };
@@ -110,14 +125,46 @@ const onSave = (newLabel) => {
     if (isEdit.value) {
         // edit
         const label_id = currentLabel.value.id;
-        router.put(route("admin.label.update",label_id),newLabel)
+        router.put(route("admin.label.update",label_id),newLabel,{
+            onBefore:()=>{
+                isProcessing.value = true
+            },
+            onSuccess:()=>{
+                notification['success']({
+                    message: 'Update label information successfully',
+                    duration: 2
+                });
+            },
+            onFinish:() =>{
+                isProcessing.value = false
+                closeModal();
+            }
+        })
     } else {
-        router.post(route("admin.label.store"),newLabel)
+        router.post(route("admin.label.store"),newLabel, {
+            onBefore:()=>{
+                isProcessing.value = true
+            },
+                onSuccess:()=>{
+                isProcessing.value = false
+                closeModal();
+                notification['success']({
+                    message: 'Add new label successfully',
+                    duration: 2
+                });
+            },
+        })
     }
-    closeModal();
 }
 const onDelete = (label_id) => {
-    router.delete(route("admin.label.destroy", label_id))
+    router.delete(route("admin.label.destroy", label_id), {
+        onSuccess:()=>{
+            notification['success']({
+                message: 'Delete this label successfully',
+                duration: 2
+            });
+        },
+    })
 }
 
 

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,7 +11,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class LabelAnswer extends Model
 {
-    use HasFactory;
 
     protected $table ='label_answers';
     protected $fillable =['image_id','label_id','user_id','accuracy'];

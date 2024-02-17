@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('labels', function (Blueprint $table) {
+        Schema::create('block_labels', function (Blueprint $table) {
             $table->id();
-            $table->text('name');
-            $table->tinyInteger('class_id')->nullable();
-            $table->boolean('status')->default(true)->nullable();
-            $table->text('category_id');
+            $table->foreignId('block_id')->constrained('blocks')->cascadeOnDelete();
+            $table->foreignId('label_id')->constrained('labels')->cascadeOnDelete();
+            $table->bigInteger('user_id');
+            $table->double('accuracy')->nullable();
             $table->timestamps();
         });
     }
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('labels');
+        Schema::dropIfExists('block_labels');
     }
 };

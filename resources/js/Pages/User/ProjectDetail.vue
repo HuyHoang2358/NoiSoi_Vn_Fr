@@ -15,19 +15,6 @@
                                 </div>
                             </div>
                             <div  class="flex justify-end items-center gap-2">
-<!--                                <button type="button"
-                                    class="py-2 px-4 font-semibold rounded-lg hover:text-white hover:bg-green-400 border border-green-400 bg-white text-green-500"
-                                    @click="autoCheckQuality"
-                                >
-                                    AI auto check quality
-                                </button>
-                                <button type="button"
-                                    class="py-2 px-4 font-semibold rounded-lg hover:text-white hover:bg-blue-400 border border-blue-400 bg-white text-blue-500"
-                                    @click="autoCheckGastritis"
-                                >
-                                    AI auto check gastritis
-                                </button>-->
-
                                 <button type="button"
                                         class="py-2 px-4 font-semibold rounded-lg hover:text-white hover:bg-orange-400 border border-orange-400 bg-white text-orange-500"
                                         @click="openLabelModel"
@@ -43,7 +30,10 @@
 
                             <ImageInProject :confirmed_img="project.confirmed_image" :total_img="project.num_image" />
 
-                            <UploadFile :project_id="project.id"/>
+                            <UploadFile
+                                :project_id="project.id"
+                                @reloadProject="reloadProject"
+                            />
                         </div>
                         <div class="col-span-2 pt-4 h-full">
                             <div class="w-full">
@@ -74,7 +64,7 @@
                                             <i class="fa-solid fa-grip"></i>
                                         </button>
                                         <button class="bg-gray-200 px-2 py-1 text-xl rounded text-gray-500 hover:text-orange-400 hover:bg-white"
-                                            @click="change_sort_order"
+                                                @click="change_sort_order"
                                         >
                                             <i class="fa-solid fa-arrow-up-z-a" v-if="order_by === 'desc'"></i>
                                             <i class="fa-solid fa-arrow-down-z-a" v-else></i>
@@ -94,8 +84,24 @@
                 </div>
             </div>
         </div>
-        <a-modal v-model:open="isOpenProcessingModal" :title="getTitle" @ok="processingModalHandleOk" :footer="false">
-            <a-progress :percent="defaultPercent" />
+        <a-modal v-model:open="isOpenProcessingModal" :title="'Uploading images to project'" @ok="processingModalHandleOk" :footer="false">
+            <div class="mt-8">
+                <a-timeline>
+                    <a-timeline-item color="red">
+                        <template #dot>
+                            <i class="fa-solid fa-filter text-blue-600"></i>
+                        </template>
+                        Filtering good images with AI model ...
+                    </a-timeline-item>
+                    <a-timeline-item color="red">
+                        <template #dot>
+                            <i class="fa-solid fa-table-cells text-blue-600"></i>
+                        </template>
+                        Detecting gastritis with AI model ...
+                    </a-timeline-item>
+                </a-timeline>
+                <a-progress :percent="defaultPercent" class="mt-[-5px]"/>
+            </div>
         </a-modal>
     </AppLayout>
 </template>
@@ -121,6 +127,13 @@ const props = defineProps({
         required: true
     }
 })
+
+const reloadProject = (res) => {
+    props.images.push(res["image"]);
+    props.project.num_image = res["project"].num_image;
+    props.project.confirmed_image = res["project"].confirmed_image;
+}
+
 const order_by = ref('desc');
 const change_sort_order = () => {
     if (order_by.value === 'desc')
@@ -134,6 +147,7 @@ const currentPage = ref(1);
 const onShowSizeChange = (current, pageSize) => {
     console.log(current, pageSize);
 };
+
 const pagedImages = computed(() => {
     const startIndex = (currentPage.value - 1) * pageSize.value;
     const endIndex = startIndex + pageSize.value;
@@ -150,8 +164,9 @@ const pagedImages = computed(() => {
 
 });
 const openLabelModel = () => {
-    router.get(route("user.project.make-label", props.project.id));
+    router.get(route("user.project.confirm-label", props.project.id));
 }
+
 // Processing modal
 const defaultPercent = ref(0);
 const processingType = ref("quality");
@@ -163,42 +178,30 @@ const processingModalHandleOk = () => {
     isOpenProcessingModal.value = false;
     defaultPercent.value = 0;
 }
-const getTitle = computed(() => {
-    return processingType.value === "quality" ? "Checking image quality" : "Detecting gastritis";
-});
+const UpdateAIResult = ref(false);
+const preprocessing = async () => {
+    console.log(props.project.images)
+    if (props.project.images.length === 0){
+        return;
+    }
+    showProcessingModal();
+    let success_request = 0;
+    let num_request = props.project.images.length;
+    props.project.images.forEach((image) => {
+        axios.get(route("user.image.processing", [image.id, UpdateAIResult.value])).then((res) => {
+            success_request++;
+            defaultPercent.value = Math.round(success_request/num_request * 100);
+            if (success_request === num_request){
+                setTimeout(() => {
+                    processingModalHandleOk();
+                    // reload page
+                    router.get(route("user.project.detail", props.project.id));
+                }, 2000); //
 
-const autoCheckQuality = () => {
-    processingType.value = "quality";
-    showProcessingModal();
-    let success_request = 0;
-    let num_request = props.project.images.length;
-    props.project.images.forEach((image) => {
-        axios.get(route("user.image.auto-check-quality", image.id)).then((res) => {
-            success_request++;
-            defaultPercent.value = Math.round(success_request/num_request * 100);
-            if (success_request === num_request){
-                setTimeout(() => {
-                    processingModalHandleOk();
-                }, 2000); //
+
             }
         })
     });
-};
-const autoCheckGastritis = () => {
-    processingType.value = "gastritis";
-    showProcessingModal();
-    let success_request = 0;
-    let num_request = props.project.images.length;
-    props.project.images.forEach((image) => {
-        axios.get(route("user.image.auto-detect-gastritis", image.id)).then((res) => {
-            success_request++;
-            defaultPercent.value = Math.round(success_request/num_request * 100);
-            if (success_request === num_request){
-                setTimeout(() => {
-                    processingModalHandleOk();
-                }, 2000); //
-            }
-        })
-    });
+
 }
 </script>

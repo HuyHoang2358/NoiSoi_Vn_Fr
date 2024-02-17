@@ -15,14 +15,9 @@ return new class extends Migration
             $table->id()->startingValue(10000000);
             $table->bigInteger('user_id');
             $table->bigInteger('project_id');
-            $table->bigInteger('parent_id')->nullable()->default(0);
             $table->string('file_name')->nullable()->default("");
             $table->string('file_path')->nullable()->default("");
             $table->bigInteger('size')->nullable();
-            $table->bigInteger('top')->default(0);
-            $table->bigInteger('left')->default(0);
-            $table->bigInteger('width')->default(0);
-            $table->bigInteger('height')->default(0);
             $table->timestamps();
         });
     }

@@ -11,12 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('labels', function (Blueprint $table) {
-            $table->id();
-            $table->text('name');
-            $table->tinyInteger('class_id')->nullable();
-            $table->boolean('status')->default(true)->nullable();
-            $table->text('category_id');
+        Schema::create('projects', function (Blueprint $table) {
+            $table->id()->startingValue(1000000);
+            $table->string('name');
+            $table->string('description')->nullable();
+            $table->bigInteger('user_id');
+            $table->integer('num_image')->default(0);
             $table->timestamps();
         });
     }
@@ -26,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('labels');
+        Schema::dropIfExists('projects');
     }
 };

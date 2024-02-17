@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
-use SebastianBergmann\Type\TrueType;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @method static create(array $array)
@@ -18,113 +20,60 @@ use SebastianBergmann\Type\TrueType;
  */
 class Image extends Model
 {
-    use HasFactory;
     protected $table ='images';
-    protected $fillable =['user_id','project_id','parent_id','file_name','file_path','size','top','left','width','height'];
-
-    protected $appends = ['quality_label','sub_images', 'gastritis_label', 'is_confirmed'];
-
-
-    public function deleteSubImages(): void
-    {
-        foreach ($this->subImages as $sub_image){
-            $sub_image->delete();
-        }
-    }
-    public function deleteLabelAnswers(): void
-    {
-        foreach ($this->labelAnswers as $labelAnswer){
-            $labelAnswer->delete();
-        }
-    }
-
-    public static function boot(): void
+    protected $fillable =['user_id','project_id','file_name','file_path','size'];
+    protected $appends = ['quality_label', 'is_confirmed', 'zone_label_id'];
+    protected static function boot(): void
     {
         parent::boot();
         static::deleting(function($image){
-            $image->deleteLabelAnswers();
-            $image->deleteSubImages();
+            $image->project()->decrement('num_image');
+            Storage::delete("public/".$image->project_id."/".$image->file_name);
+            $image->imageLabels()->delete();
+            $image->blocks()->delete();
         });
     }
 
-    private function confirmedLabel(){
-        return LabelAnswer::where('image_id','=',$this->id)
-            ->where('user_id','>',-1)
-            ->whereHas('label',function ($query){
-                $query->gastritis();
-            })->with('label')->first();
-    }
-
-    // Relationship model
-
-    public function project(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    // relationship model
+    public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class,'project_id','id');
     }
-
-    public function subImages(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(Image::class,'parent_id','id');
-    }
-
-    public function author(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function author(): BelongsTo
     {
         return $this->belongsTo(User::class,'user_id','id');
     }
-
-    public function labelAnswers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function blocks():HasMany
     {
-        return $this->hasMany(LabelAnswer::class,'image_id','id');
+        return $this->hasMany(Block::class, 'image_id', 'id');
     }
-
-
-
-    // Add attribute
-
-    public function getSubImagesAttribute()
+    public function imageLabels(): HasMany
     {
-        return Image::where('parent_id',$this->id)->get();
+        return $this->hasMany(ImageLabel::class,'image_id','id');
+    }
+    public function zoneLabel(): Model|HasMany|null
+    {
+        return $this->imageLabels()->where('user_id','=', Auth::user()->id)
+            ->whereHas('label', function($query){
+                $query->zone();
+            })->first();
     }
 
-    public function getGastritisLabelAttribute(){
-        if($this->confirmedLabel()) return $this->confirmedLabel();
-        return LabelAnswer::where('image_id','=',$this->id)
-            ->where('user_id','=',-1)
-            ->whereHas('label',function ($query){
-                $query->gastritis();
-            })->with('label')->first();
+    // Attributes
+    public function getQualityLabelAttribute()
+    {
+        $qualityLabel = $this->imageLabels()->whereHas('label',function ($query){$query->ImageQuality();})->first();
+        return $qualityLabel?->label->name;
     }
-
-
     public function getIsConfirmedAttribute(): bool
     {
-        if ($this->parent_id) return !($this->confirmedLabel() == null);
-
-        foreach ($this->sub_images as $sub_image) {
-            if ($sub_image->is_confirmed) return true;
-        }
+        if ($this->blocks()->count() == 0) return false;
+        $block = $this->blocks()->first();
+        if($block->confirmed_label) return true;
         return false;
-
     }
-
-    public function AILabels(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function getZoneLabelIdAttribute()
     {
-        return $this->hasOne(LabelAnswer::class,'image_id','id')
-            ->where('user_id',-1)->with('label');
+        return $this->zoneLabel()?->label_id;
     }
-
-    public function ConfirmedLabels(): \Illuminate\Database\Eloquent\Relations\HasOne
-    {
-        return $this->hasOne(LabelAnswer::class,'image_id','id')
-            ->where('user_id','>',-1)->with('label');
-    }
-
-    public function getQualityLabelAttribute(){
-        return  LabelAnswer::where('image_id','=',$this->id)
-            ->where('user_id','=',-1)
-            ->whereHas('label',function ($query){
-                $query->quality();
-            })->select('label_id')->first();
-    }
-
 }

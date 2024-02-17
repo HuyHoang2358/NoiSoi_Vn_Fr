@@ -2,6 +2,9 @@
 namespace App\Traits;
 
 use Illuminate\Support\Facades\Storage;
+use Spatie\Image\Exceptions\InvalidManipulation;
+use Spatie\Image\Image;
+use Spatie\Image\Manipulations;
 
 trait StorageTrait
 {
@@ -20,9 +23,20 @@ trait StorageTrait
             Storage::deleteDirectory($folderPath);
         }
     }
+
     protected function getBase64($path): string
     {
         $file = Storage::get($path);
         return base64_encode($file);
+    }
+
+
+    /**
+     * @throws InvalidManipulation
+     */
+    protected function cropImage($path, $x, $y, $width, $height): void
+    {
+        Image::load(Storage::get($path))
+            ->manualCrop($width, $height, $x, $y)->save(Storage::get($path));
     }
 }

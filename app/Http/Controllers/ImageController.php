@@ -2,14 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BlockLabel;
 use App\Models\Image;
+use App\Models\ImageLabel;
 use App\Models\LabelAnswer;
 use App\Models\Project;
 use App\Traits\SendRequestTrait;
 use App\Traits\StorageTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
 
 class ImageController extends Controller
 {
@@ -23,85 +26,111 @@ class ImageController extends Controller
 
     public function store(Request $request, $project_id): \Illuminate\Http\JsonResponse
     {
-        $input =  $request->all();
-        $file = $request->file('file');
-        $originalName = $file->getClientOriginalName();
-        $size = $file->getSize();
-        $file_path = $file->storeAs('public/'.$project_id, $originalName);
+        $project = Project::find($project_id);
+        if ($project){
+            $project->increment('num_image');
+            $file = $request->file('file');
+            $originalName = $file->getClientOriginalName();
+            $size = $file->getSize();
+            $file_path = $file->storeAs('public/'.$project_id, $originalName);
+            $image = Image::create([
+                'user_id' => Auth::user()->id,
+                'project_id' => $project_id,
+                'file_name' => $originalName,
+                'file_path' => '/storage/'.$project_id.'/'.$originalName,
+                'size' => $size,
+            ]);
+            if($this->checkingQualityImage($image)){
+                $this->detectGastritisImage($image);
+                return response()->json([
+                    "image" => $image,
+                    "message" => "Upload image successfully",
+                    "project" => $project
+                ],200);
+            }else{
+                $image->delete();
+                return response()->json([
+                    'message' => 'Quality of image  is not good enough, please upload another image'
+                ], 400);
+            }
 
-        $image = Image::create([
-            'user_id' => Auth::user()->id,
-            'project_id' => $project_id,
-            'parent_id' => null,
-            'file_name' => $originalName,
-            'file_path' => '/storage/'.$project_id.'/'.$originalName,
-            'size' => $size,
-            'width' => 0,
-            'height' => 0,
-            'top' => 0,
-            'left' => 0,
-        ]);
-        return response()->json($image);
+        }
+        return response()->json([
+            'message' => 'Not exist project with id '.$project_id
+        ], 400);
     }
-    public function destroy($id): \Illuminate\Http\RedirectResponse
+
+    public function destroy($id): RedirectResponse
     {
         $image = Image::find($id);
         if($image){
-            $project_id = $image->project->id;
-            Storage::delete("public/".$project_id."/".$image->file_name);
             $image->delete();
         }
         return back();
     }
-    public function autoCheckingQuality($image_id): \Illuminate\Http\JsonResponse
+
+    public function processing($image_id, $run_again):RedirectResponse
     {
         $image = Image::find($image_id);
         if ($image){
-            $this->autoCheckingQualityImage($image);
-            return response()->json([
-                'message' => 'success'
-            ]);
+            $image_label = $image->imageLabels()->where('user_id', '=', -1)
+                ->whereHas('label', function ($query) {
+                    $query->ImageQuality();
+                })->first();
+            if ($run_again || $image_label == null){
+                if($this->checkingQualityImage($image)){
+                    $this->detectGastritisImage($image);
+                }else{
+                    $image->delete();
+                }
+            }
         }
-        return response()->json([
-            'message' => 'fail'
-        ]);
+        return back();
     }
-    public function autoDetectGastritis($image_id): \Illuminate\Http\JsonResponse
-    {
-        $image = Image::find($image_id);
-        if ($image){
-            $this->autoDetectGastritisImage($image);
-            return response()->json([
-                'message' => 'success'
-            ]);
-        }
-        return response()->json([
-            'message' => 'fail'
-        ]);
-    }
-    public function confirmLabel(Request $request): \Illuminate\Http\JsonResponse
+
+    public function confirmLabel(Request $request)
     {
         $input = $request->all();
-        $sub_images = $input['sub_images'];
-        foreach ($sub_images as $sub_image){
-            $answerLabel = LabelAnswer::where('image_id','=',$sub_image['id'])->where('user_id','<>',-1)->first();
-            if ($answerLabel){
-                $answerLabel->update([
-                    'label_id' => $sub_image['label_id'],
-                    'user_id' => Auth::user()->id,
+        $blocks = $input['blocks'];
+        $new_zone_label_id = $input['zone_id'];
+        $image_id = $input['image_id'];
+
+        // confirm block Label
+        foreach ($blocks as $block){
+            $blockLabel = BlockLabel::where('block_id',$block['id'])->where('user_id', '=', Auth::user()->id)->first();
+            if ($blockLabel) {
+                $blockLabel->update([
+                    'label_id' => $block['label_id'],
+                    'accuracy' => 100,
                 ]);
-            }else{
-                LabelAnswer::create([
-                    'image_id' => $sub_image['id'],
-                    'label_id' => $sub_image['label_id'],
+            }else {
+                BlockLabel::create([
+                    'block_id' => $block['id'],
+                    'label_id' => $block['label_id'],
                     'user_id' => Auth::user()->id,
                     'accuracy' => 100,
                 ]);
             }
         }
-        return response()->json([
-            'message' => 'success',
-            "current_image" => Image::find(Image::find($sub_images[0]['id'])->parent_id),
-        ]);
+
+        // confirm zone label
+        $image = Image::find($image_id);
+        if ($image && $new_zone_label_id){
+            $zoneLabel = $image->zoneLabel();
+            if ($zoneLabel) {
+                    $zoneLabel->update([
+                        'label_id' => $new_zone_label_id
+                    ]);
+            }else{
+                $zoneLabel = ImageLabel::create([
+                    "image_id" => $image_id,
+                    "label_id" => $new_zone_label_id,
+                    "user_id" => Auth::user()->id,
+                    "accuracy" => 100
+                ]);
+            }
+        }
+        return back();
     }
+
 }

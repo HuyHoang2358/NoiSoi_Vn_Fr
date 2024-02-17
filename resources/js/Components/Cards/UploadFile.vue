@@ -23,37 +23,40 @@
             </div>
 
         </div>
-        <div class="flex justify-end items-center mt-2">
-            <button class="bg-blue-500 text-white py-2 px-6 rounded-lg"
-                @click="router.get(route('user.project.detail', props.project_id))"
-            >Upload</button>
-        </div>
-
     </div>
 </template>
-<script lang="ts" setup>
+<script setup>
 import {ref} from "vue";
-const current = ref(1);
-
+import {notification} from "ant-design-vue";
 const csrfToken = document.head.querySelector('meta[name="csrf-token"]').content;
-
 const props = defineProps({
     project_id:{
         type:Number,
         required:true
     },
 });
-import type { UploadChangeParam } from 'ant-design-vue';
-import {router} from "@inertiajs/vue3";
-
+const emits = defineEmits(['reloadProject'])
 const fileList = ref([]);
-const handleChange = (info) => {
-    const items = info.fileList?.map((item)=> {return {...item, status:'done', percent: 100}});
 
+const handleChange = (info) => {
+    console.log(info);
+    if (info.file.status === 'done') {
+        // upload image Done
+        console.log("done", info.file.response);
+        notification['success']({
+            message: info.file.response.message,
+            duration: 3
+        });
+        emits('reloadProject', info.file.response);
+    }else if(info.file.status === 'error') {
+        console.log("error", info.file.response.message);
+        notification['error']({
+            message:  info.file.response.message,
+            duration: 3
+        });
+    }
 };
-function handleDrop(e: DragEvent) {
+function handleDrop(e) {
     console.log(e);
 }
-
-
 </script>

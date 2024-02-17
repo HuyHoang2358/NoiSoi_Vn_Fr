@@ -20,13 +20,21 @@ class Project extends Model
         'name',
         'description',
         'user_id',
+        'num_image',
     ];
 
+    protected static function boot(): void
+    {
+        parent::boot();
+        static::deleting(function($project){
+            $project->images()->delete();
+        });
+    }
+
     protected $with = ['user'];
-    protected $appends = ['confirmed_image', "num_image"];
+    protected $appends = ['confirmed_image'];
 
-
-
+    // relationship model
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id', 'id');
@@ -34,22 +42,17 @@ class Project extends Model
 
     public function images(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(Image::class,'project_id','id')->where('parent_id',null);
+        return $this->hasMany(Image::class,'project_id','id');
     }
 
-    public function getConfirmedImageAttribute(): int
+    public function getConfirmedImageAttribute() :int
     {
-        $images = $this->images;
-        $confirmedImage = 0;
-        foreach ($images as $image){
-            if($image->is_confirmed) $confirmedImage++;
+        $num = 0;
+        $images = $this->images()->get();
+        foreach ($this->images()->get() as $image) {
+            if($image->is_confirmed) $num ++;
         }
-        return $confirmedImage;
-    }
-
-    public function getNumImageAttribute(): int
-    {
-        return $this->images()->count();
+        return $num;
     }
 
 }

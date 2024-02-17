@@ -14,6 +14,7 @@
             <a-form-item
                 name="name"
                 label="Project Name"
+                :rules="[{ required: true, message: 'Please input project name!' }]"
             >
                 <a-input
                     v-model:value="formState.name"

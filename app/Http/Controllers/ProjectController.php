@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Label;
-use App\Models\LabelAnswer;
 use App\Models\Project;
 use App\Traits\SendRequestTrait;
 use App\Traits\StorageTrait;
@@ -22,7 +21,7 @@ class ProjectController extends Controller
 
     public function index(): \Inertia\Response
     {
-        return Inertia::render('Project',[
+        return Inertia::render('User/ProjectList',[
             'myProjects' => Project::where('user_id', Auth::user()->id)->get()
         ]);
     }
@@ -33,11 +32,13 @@ class ProjectController extends Controller
         $project = Project::create([
             'name' => $request->input('name'),
             'description' => $request->input('description'),
-            'user_id' => Auth::user()->id
+            'user_id' => Auth::user()->id,
+            'num_image' => 0,
         ]);
         $this->createFolder("public/".$project->id);
         return back();
     }
+
     public function update(Request $request, $id): \Illuminate\Http\RedirectResponse
     {
         $project = Project::find($id);
@@ -47,6 +48,7 @@ class ProjectController extends Controller
         ]);
         return back();
     }
+
     public function destroy($id): \Illuminate\Http\RedirectResponse
     {
         $project = Project::find($id);
@@ -55,16 +57,32 @@ class ProjectController extends Controller
         return back();
     }
 
-    public function detail($project_id): \Inertia\Response
+    public function detail($project_id): \Inertia\Response|\Illuminate\Http\RedirectResponse
     {
         $project = Project::find($project_id);
-        return Inertia::render('ProjectDetail',[
-            'project' => $project,
-            'images' => $project->images,
-        ]);
+        if($project){
+            return Inertia::render('User/ProjectDetail',[
+                'project' => $project,
+                'images' => $project->images,
+            ]);
+        }
+        return back();
+
     }
 
+    public function confirmLabel($project_id): \Inertia\Response
+    {
+        $project = Project::find($project_id);
+        $images = $project->images()->with('blocks')->paginate(1);
+        return Inertia::render('User/ProjectConfirmLabel',[
+            'project' => $project,
+            'images' => $images,
+            'imageZoneLabels' => Label::zone()->get(),
+            'blockGastritisLabels' => Label::gastritis()->get(),
+        ]);
 
+
+    }
     public function makeLabel($project_id): \Inertia\Response
     {
         $project = Project::find($project_id);

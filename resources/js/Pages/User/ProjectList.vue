@@ -51,6 +51,7 @@ const onDelete = (project) => {
         onSuccess:()=>{
             notification['success']({
                 message: 'Delete project successfully',
+                duration: 2,
             });
         },
     });
@@ -66,10 +67,11 @@ const onSave = (data) => {
             },
             onSuccess:()=>{
                 isProcessing.value = false
-                closeModal();
                 notification['success']({
                     message: 'Update project information successfully',
+                    duration: 2,
                 });
+                closeModal();
             },
         })
     }else{
@@ -79,10 +81,11 @@ const onSave = (data) => {
             },
             onSuccess:()=>{
                 isProcessing.value = false
-                closeModal();
                 notification['success']({
                     message: 'Create new project successfully',
+                    duration: 2
                 });
+                closeModal();
             },
 
         })
