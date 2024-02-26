@@ -3,7 +3,7 @@
         :open="open"
         :mask-closable ="false"
         :footer="false"
-        :title="'Sharing project'"
+        :title="getTitle"
         @cancel="$emit('closeModal')"
     >
         <a-form
@@ -14,6 +14,7 @@
             <a-form-item
                 name="name"
                 label="Project Name"
+                :rules="[{ required: true, message: 'Please input project name!' }]"
             >
                 <a-input
                     v-model:value="formState.name"
@@ -29,7 +30,14 @@
             <a-form-item>
                 <div class="flex flex-row justify-end gap-x-4 items-center mt-8">
                     <CancelButton @click="$emit('closeModal')"> Cancel </CancelButton>
-                    <submit-form-button>   </submit-form-button>
+                    <a-button
+                        type="primary"
+                        html-type="submit"
+                        danger
+                        :loading="isProcessing"
+                    >
+                        {{isEdit ? "Update information" : "Create"}}
+                    </a-button>
                 </div>
             </a-form-item>
         </a-form>
@@ -39,7 +47,7 @@
 </template>
 <script setup>
 
-import { defineProps, reactive, watch} from "vue";
+import {computed, defineProps, reactive, watch} from "vue";
 import SubmitFormButton from "@/Components/Buttons/SubmitFormButton.vue";
 import CancelButton from "@/Components/Buttons/CancelButton.vue";
 
@@ -47,6 +55,16 @@ const props = defineProps({
     open:{
         type:Boolean,
         required:true
+    },
+    isEdit: {
+        type: Boolean,
+        default: false,
+        required: true,
+    },
+    isProcessing: {
+        type: Boolean,
+        default: false,
+        required: true,
     },
     currentProject: {
         type: Object,
@@ -58,8 +76,11 @@ const props = defineProps({
         },
     },
 });
-
 const emits = defineEmits(["closeModal", "onSave"])
+
+const getTitle = computed(() => {
+    return props.isEdit ? "Edit project" : "Create new project";
+});
 
 const formState = reactive({
     name: "",
@@ -86,6 +107,7 @@ const handleFinish = () => {
     };
     formState.name = "";
     formState.description = "";
+
     emits("onSave", data);
 };
 </script>
